@@ -51,31 +51,41 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Chatty"),
+        centerTitle: false,
         backgroundColor: const Color.fromARGB(255, 197, 107, 213),
         actions: [
           IconButton(
               onPressed: () {
-                // getDataFromFirestore();
+                auth.signOut();
               },
-              icon: const Icon(Icons.refresh))
+              icon: const Icon(Icons.logout))
         ],
       ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           StreamBuilder(
-              stream: firestore.collection('flutterchatroom').snapshots(),
+              stream: firestore
+                  .collection('gameroom')
+                  .orderBy('timestamp', descending: true)
+                  .snapshots(),
               builder: (context, snapshot) {
-                List<Text> messageList = [];
+                List<MessageBubble> messageList = [];
 
                 if (snapshot.hasData) {
                   for (var message in snapshot.data!.docs) {
-                    messageList.add(
-                        Text("${message['sender']} - ${message['message']}"));
+                    messageList.add(MessageBubble(
+                      isMe: message['sender'] == currentUser!.email,
+                      sender: message['sender'],
+                      msg: message['message'],
+                    ));
                   }
                 }
-                return Column(
-                  children: messageList,
+                return Expanded(
+                  child: ListView(
+                    reverse: true,
+                    children: messageList,
+                  ),
                 );
               }),
           // const Column(
@@ -101,10 +111,13 @@ class _ChatScreenState extends State<ChatScreen> {
               IconButton(
                   onPressed: () async {
                     try {
-                      await firestore.collection('flutterchatroom').add({
+                      await firestore.collection('gameroom').add({
                         "sender": currentUser!.email,
-                        "message": msgCtrl.text
+                        "message": msgCtrl.text,
+                        "timestamp": FieldValue.serverTimestamp()
                       });
+
+                      msgCtrl.clear();
                     } catch (e) {
                       print("Show error msg $e");
                     }
@@ -116,6 +129,53 @@ class _ChatScreenState extends State<ChatScreen> {
                   ))
             ],
           )
+        ],
+      ),
+    );
+  }
+}
+
+class MessageBubble extends StatelessWidget {
+  const MessageBubble(
+      {super.key, required this.msg, required this.sender, required this.isMe});
+
+  final String sender;
+  final String msg;
+  final bool isMe;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(10.0),
+      child: Row(
+        mainAxisAlignment:
+            isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
+        children: [
+          Column(
+            crossAxisAlignment:
+                isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              Text(sender),
+              Container(
+                decoration: BoxDecoration(
+                  color: isMe ? Colors.green : Colors.blue,
+                  borderRadius: BorderRadius.only(
+                      topLeft: isMe
+                          ? const Radius.circular(15)
+                          : const Radius.circular(0),
+                      topRight: isMe
+                          ? const Radius.circular(0)
+                          : const Radius.circular(15),
+                      bottomLeft: const Radius.circular(15),
+                      bottomRight: const Radius.circular(15)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                  child: Text(msg),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );
